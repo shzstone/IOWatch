@@ -1,85 +1,73 @@
-# IOWATCH - 磁盘休眠分析工具 (ARM/x86_64) 🚀
+# IOWatch - Disk Hibernation Analysis Tool 🚀
 
-[![Language](https://img.shields.io/badge/Language-C-blue.svg)](https://en.cppreference.com/w/c)
-[![Platform](https://img.shields.io/badge/Platform-Linux-orange.svg)](https://www.kernel.org/)
-[![License](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
-
-**IOWATCH** 是一个轻量级、高性能的磁盘 IO 监控工具，专门用于分析 Linux 系统中阻碍磁盘休眠（HDD Hibernation）的“元凶”。
-
-不同于普通的 `iotop` 或 `lsof`，IOWATCH 利用内核 **fanotify** API，能够实时捕获指定挂载点上所有文件的 **打开(OPEN)**、**读取(READ)**、**修改(MODIFY)** 及 **关闭(CLOSE)** 事件，并精确关联到触发这些事件的**进程 PID** 及 **程序路径**。
+[English](#-english) | [简体中文](#-简体中文)
 
 ---
 
-## ✨ 核心特性
+## 🇺🇸 English
 
-- **文件系统级监控**：支持 `FAN_MARK_FILESYSTEM`，只需指定挂载点，即可监控该分区下的所有子目录和文件。
-- **深层追踪**：不仅显示进程名，还能追踪到触发 IO 的具体可执行程序文件路径。
-- **极低开销**：基于内核事件驱动机制，对系统性能影响微乎其微，适合在 NAS (群晖/威联通)、iStoreOS、树莓派等嵌入式设备上长期运行。
-- **零依赖性**：支持静态编译，生成独立二进制文件，拷贝即用，无需安装任何库。
-- **实时时间戳**：精确记录每次访问的时间，方便与系统日志进行对齐分析。
+**IOWatch** is a high-performance disk I/O monitoring utility designed to identify processes that prevent **HDD hibernation (spinning down)** on Linux systems (NAS, OpenWrt, Servers). By leveraging the kernel's **fanotify** API, it provides real-time visibility into every file access at the VFS layer.
 
----
+### ✨ Key Features
+- **Zero Dependencies**: Statically linked binaries—just copy and run on any Linux distro.
+- **Filesystem-Wide Monitoring**: Uses `FAN_MARK_FILESYSTEM` to watch an entire drive with one command.
+- **Process Correlation**: Accurately maps I/O events to **PID**, **Process Name**, and **Executable Path**.
+- **Container Aware**: Traces I/O back to the specific binary even if it's inside a Docker container.
+- **Minimal Overhead**: Event-driven; safe for low-resource hardware like ARM routers.
 
-## ⚙️ 环境要求
-
-- **操作系统**：Linux 
-- **内核版本**：建议 5.1 或更高版本（支持 `FAN_MARK_FILESYSTEM` 标志）
-- **权限**：必须使用 `root` 权限运行
-
----
-
-## 🛠️ 编译与安装
-
-项目仅由一个单体 C 文件组成。建议使用静态编译以获得最大兼容性：
-
+### 📥 Download & Quick Start
+1. **Download**: Go to the **[Releases](https://github.com/guoshh1978/IOWatch/releases)** page and download the version for your architecture (`arm64` or `x86_64`).
+2. **Upload**: Use SCP or SFTP to upload the binary to your device.
+3. **Run**:
 ```bash
-# 编译
-gcc -O3 -static iowatch.c -o iowatch
+# Give execution permissions
+chmod +x iowatch-arm64
 
-# 如果在精简版 Linux (如 iStoreOS) 上，可能需要先安装 gcc 
-# opkg update && opkg install gcc
+# Start monitoring (e.g., monitor your data pool at /volume1)
+sudo ./iowatch-arm64 /volume1
 ```
 
----
-
-## 🚀 使用说明
-
-### 1. 查找挂载点
-首先确认您要监控的磁盘分区挂载在哪里：
-```bash
-df -h
-```
-假设您的数据盘挂载在 `/volume1` 或 `/mnt/sda1`。
-
-### 2. 启动监控
-```bash
-sudo ./iowatch /volume1
-```
-
-### 3. 输出示例解析
-一旦有程序访问磁盘，终端会实时输出以下格式的日志：
-
-| 时间戳 | 动作 | PID | 进程名 | 文件路径 [触发程序] |
+### 🚀 Output Interpretation
+| Timestamp | Action | PID | Process | File Path [Triggering Binary] |
 | :--- | :--- | :--- | :--- | :--- |
-| 2024-04-01 10:12:05 | READ | 1245 | python3 | /volume1/data/db.sqlite [/usr/bin/python3.10] |
-| 2024-04-01 10:12:08 | MODIFY | 890 | smbd | /volume1/share/test.txt [/usr/sbin/smbd] |
+| 2024-04-01 10:12:05 | READ | 1245 | python3 | /data/db.sqlite [/usr/bin/python3] |
+| 2024-04-01 10:12:08 | MODIFY | 890 | smbd | /share/log.txt [/usr/sbin/smbd] |
 
-- **READ/OPEN**: 代表程序正在读取数据。
-- **MODIFY/WRITE_CLOSE**: 代表程序正在写入数据，这是阻碍休眠的最主要原因。
-
----
-
-## 💡 分析技巧：为什么我的磁盘不休眠？
-
-1. **日志文件**：检查是否有进程在不停地向磁盘写入 `/log` 或 `/tmp` 文件。
-2. **数据库扫描**：某些媒体服务器（如 Plex/Emby/Jellyfin）会定期扫描库文件，触发大量 `READ` 事件。
-3. **系统服务**：注意像 `smartd`、`samba` 或云盘同步服务是否在后台频繁执行。
-4. **定位元凶**：通过输出最后的 `[触发程序]` 路径，你可以清晰地知道是哪个软件包在捣鬼。
+[Back to Top](#iowatch---disk-hibernation-analysis-tool-)
 
 ---
 
-## 📄 许可证
-MIT License
+## 🇨🇳 简体中文
+
+**IOWatch** 是一个轻量级、高性能的磁盘 I/O 监控工具，专门用于分析 Linux 系统中（如 NAS、OpenWrt 路由器）阻碍 **硬盘休眠** 的“元凶”。
+
+### ✨ 核心特性
+*   **精准锁定**：利用 `fanotify` 机制，不仅能看到哪个文件被读写，还能追溯具体是哪个**程序路径**触发的 IO。
+*   **容器穿透**：即使进程运行在 Docker 容器内部，也能准确显示其在宿主机上的可执行文件路径。
+*   **极低开销**：基于内核事件驱动，无需轮询，对 CPU 和内存占用极低，适合嵌入式设备长期挂机。
+*   **零依赖**：采用静态编译，不依赖 GLIBC，在任何 Linux 发行版上都能拷贝即用。
+
+### 📥 快速开始 (无需编译)
+1.  **下载**：从 **[Releases](https://github.com/guoshh1978/IOWatch/releases)** 页面下载对应架构的二进制文件（ARM64 适用于主流 NAS，x86_64 适用于普通电脑/服务器）。
+2.  **上传**：通过 SCP、网盘或群晖文件管理器将文件上传到设备。
+3.  **运行**：
+```bash
+chmod +x iowatch-arm64
+df -h  # 查看挂载点，例如 /volume1 或 /mnt/sda1
+sudo ./iowatch-arm64 /volume1
+```
+
+### ⚙️ 环境要求
+- **内核版本**：建议 Linux 5.1+。
+- **权限**：必须以 `root` 或 `sudo` 运行。
+- **旧内核适配**：若在旧内核上运行失败，请将源码中 `FAN_MARK_FILESYSTEM` 替换为 `FAN_MARK_MOUNT` 后手动编译。
+
+[返回顶部](#iowatch---disk-hibernation-analysis-tool-)
 
 ---
-**Developed by Stone** | 专注于极致性能与实用的运维利器。
+
+## 📄 License
+MIT License.
+
+---
+**Developed by Stone** | *Architect-grade stability for Linux systems.*
