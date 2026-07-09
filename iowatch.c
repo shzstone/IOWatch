@@ -436,7 +436,7 @@ static void env_probe(const char *mnt) {
         int rot_fd = open(rot_path, O_RDONLY);
         if (rot_fd >= 0) {
             char rot_buf[4] = {0};
-            read(rot_fd, rot_buf, sizeof(rot_buf));
+            ssize_t dummy = read(rot_fd, rot_buf, sizeof(rot_buf)); (void)dummy;
             g_is_hdd = (rot_buf[0] == '1');
             close(rot_fd);
         }
